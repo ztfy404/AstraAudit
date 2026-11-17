@@ -1,4 +1,6 @@
+import ast
 import io
+import sys
 import json
 import os
 import stat
@@ -15,6 +17,16 @@ from astraudit.reports import html_report, markdown, write_reports
 
 
 class CoreTests(unittest.TestCase):
+    def test_python35_syntax_compatibility(self):
+        root = Path(__file__).resolve().parent.parent
+        paths = [root / "audit.py"] + list((root / "astraaudit").glob("*.py"))
+        for path in paths:
+            source = path.read_text(encoding="utf-8")
+            if sys.version_info >= (3, 8):
+                ast.parse(source, filename=str(path), feature_version=(3, 5))
+            else:
+                ast.parse(source, filename=str(path))
+
     def test_unique_registered_ids(self):
         ids=[r[0] for r in CHECKS]
         self.assertEqual(len(ids),47)
