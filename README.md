@@ -2,11 +2,11 @@
 
 **AstraAudit** — бесплатный инструмент командной строки для автоматизированной проверки базовых настроек безопасности **Astra Linux**. Он написан на Python, запускается локально, не требует `pip` и не изменяет конфигурацию системы.
 
-[![Tests](https://github.com/ztfy404/AstraAudit/actions/workflows/tests.yml/badge.svg)](https://github.com/ztfy404/AstraAudit/actions/workflows/tests.yml) ![Python](https://img.shields.io/badge/Python-3.7%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-beta-orange)
+[![Tests](https://github.com/ztfy404/AstraAudit/actions/workflows/tests.yml/badge.svg)](https://github.com/ztfy404/AstraAudit/actions/workflows/tests.yml) ![Python](https://img.shields.io/badge/Python-3.5%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-beta-orange)
 
-> **Статус: beta (v0.1.0).** Программа проверена автоматическими тестами в Linux, но ещё не испытана на реальной Astra Linux 2.12. Это **первичный аудит конфигурации**, а не полноценный пентест и не подтверждение соответствия требованиям ФСТЭК, ГОСТ, CIS или других стандартов.
+> **Статус: beta (v0.1.1).** Программа проверена автоматическими тестами в Linux, но ещё не испытана на реальной Astra Linux 2.12. Это **первичный аудит конфигурации**, а не полноценный пентест и не подтверждение соответствия требованиям ФСТЭК, ГОСТ, CIS или других стандартов.
 
-## Что делает
+**Совместимость:** код написан с учётом синтаксиса Python 3.5. Проверка синтаксиса Python 3.5 и 13 автотестов выполнялись в более новой Linux-среде; полноценное тестирование непосредственно на Astra Linux 2.12 ещё требуется.\n\n## Что делает
 
 AstraAudit выполняет **47 локальных проверок в 10 категориях**, классифицирует результаты и формирует **JSON, Markdown и HTML**-отчёты. Проверяются настройки пользователей, файловых прав, SSH, ядра, сети, аудита, журналирования, пакетов и отдельных средств защиты. Сетевые запросы и автоматическое исправление обнаруженных проблем **не выполняются**.
 
@@ -126,13 +126,13 @@ reports/
 - Проверка наличия LUKS не доказывает шифрование корневого раздела; обнаружение PARSEC не подтверждает корректность политики мандатного доступа.
 - Отдельные параметры OpenSSH зависят от `Match` и контекста подключения. Программа не анализирует каждую такую комбинацию.
 - Список обновлений APT берётся из **локального кэша**. Сетевую проверку новых версий программа не выполняет.
-- На Astra Linux Special Edition некоторые защитные механизмы требуют отдельной специализированной проверки, которой в v0.1.0 нет.
+- На Astra Linux Special Edition некоторые защитные механизмы требуют отдельной специализированной проверки, которой в v0.1.1 нет.
 
 Подробности: [SECURITY.md](SECURITY.md).
 
 ## Если что-то не работает
 
-**`python3: command not found`** — установи Python из официального репозитория Astra или проверь, какой Python доступен в системе.
+**`SyntaxError: invalid syntax` рядом с `id: str`** — в Astra запускается Python 3.5, а в первоначальной версии v0.1.0 использовались несовместимые конструкции. Ошибка исправлена в v0.1.1. Выполни `git pull --ff-only`, затем `python3 audit.py version` и `python3 audit.py run`.\n\n**`python3: command not found`** — установи Python из официального репозитория Astra или проверь, какой Python доступен в системе.
 
 **`git: command not found`** — установи пакет `git` либо скачай ZIP проекта через кнопку **Code → Download ZIP** на GitHub.
 
