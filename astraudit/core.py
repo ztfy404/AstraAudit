@@ -1,7 +1,5 @@
 """Read-only audit primitives. No network calls or shell execution."""
-from __future__ import annotations
 
-import dataclasses
 import datetime as dt
 import os
 import platform
@@ -9,49 +7,60 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 STATUSES = {"PASS", "WARN", "FAIL", "INFO", "SKIP"}
 
 
-@dataclasses.dataclass
-class Finding:
-    id: str
-    category: str
-    title: str
-    status: str
-    detail: str
-    recommendation: str = ""
-    severity: str = "medium"
+class Finding(object):
+    """Individual audit finding. Python 3.5-compatible data class."""
 
-    def __post_init__(self):
-        if self.status not in STATUSES:
-            raise ValueError("invalid status: " + self.status)
+    def __init__(self, id, category, title, status, detail,
+                 recommendation="", severity="medium"):
+        if status not in STATUSES:
+            raise ValueError("invalid status: " + status)
+        self.id = id
+        self.category = category
+        self.title = title
+        self.status = status
+        self.detail = detail
+        self.recommendation = recommendation
+        self.severity = severity
 
     def to_dict(self):
-        return dataclasses.asdict(self)
+        return {
+            "id": self.id,
+            "category": self.category,
+            "title": self.title,
+            "status": self.status,
+            "detail": self.detail,
+            "recommendation": self.recommendation,
+            "severity": self.severity,
+        }
 
 
-@dataclasses.dataclass
-class Context:
-    privileged: bool
-    timeout: float = 5.0
+class Context(object):
+    def __init__(self, privileged, timeout=5.0):
+        self.privileged = privileged
+        self.timeout = timeout
 
-    def command(self, args: List[str], timeout: Optional[float] = None) -> Tuple[Optional[int], str]:
-        """Call fixed program with explicit arguments and bounded output; no shell."""
+    def command(self, args, timeout=None):
+        """Execute fixed program with no shell, bounded time and output."""
         if not shutil.which(args[0]):
             return None, "program missing"
         try:
             env = dict(os.environ, LC_ALL="C", LANG="C")
-            result = subprocess.run(args, capture_output=True, text=True, errors="replace",
-                                    timeout=timeout or self.timeout, env=env, check=False)
-            return result.returncode, (result.stdout + "\n" + result.stderr)[:12000].strip()
+            result = subprocess.run(
+                args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                timeout=timeout or self.timeout, env=env, check=False
+            )
+            output = (result.stdout + b"\n" + result.stderr)
+            return result.returncode, output[:12000].decode("utf-8", "replace").strip()
         except (OSError, subprocess.TimeoutExpired) as exc:
             return None, type(exc).__name__
 
 
-def read(path: str, limit: int = 16000) -> Optional[str]:
+def read(path, limit=16000):
     try:
         with open(path, encoding="utf-8", errors="replace") as stream:
             return stream.read(limit)
@@ -59,7 +68,7 @@ def read(path: str, limit: int = 16000) -> Optional[str]:
         return None
 
 
-def sysctl(key: str) -> Optional[int]:
+def sysctl(key):
     value = read("/proc/sys/" + key.replace(".", "/"), 100)
     if value is None:
         return None
@@ -69,7 +78,7 @@ def sysctl(key: str) -> Optional[int]:
         return None
 
 
-def service(ctx: Context, name: str) -> Tuple[str, str]:
+def service(ctx, name):
     if not shutil.which("systemctl") or not Path("/run/systemd/system").exists():
         return "unavailable", "systemd unavailable"
     rc, out = ctx.command(["systemctl", "is-active", name])
@@ -84,26 +93,26 @@ def service(ctx: Context, name: str) -> Tuple[str, str]:
     return "unavailable", out[:80]
 
 
-def finding(id: str, category: str, title: str, status: str, detail: str,
-            recommendation: str = "", severity: str = "medium") -> Finding:
+def finding(id, category, title, status, detail,
+            recommendation="", severity="medium"):
     return Finding(id, category, title, status, detail, recommendation, severity)
 
 
 CHECKS = []
 
 
-def register(id: str, category: str, title: str):
-    def deco(fn: Callable[[Context], Finding]):
+def register(id, category, title):
+    def deco(fn):
         CHECKS.append((id, category, title, fn))
         return fn
     return deco
 
 
-def sanitize_one_line(text: str, maxlen: int = 160) -> str:
+def sanitize_one_line(text, maxlen=160):
     return re.sub(r"[\r\n\t]+", " ", text).strip()[:maxlen]
 
 
-def summary(findings: List[Finding]):
+def summary(findings):
     counts = {s: 0 for s in ("PASS", "WARN", "FAIL", "INFO", "SKIP")}
     for item in findings:
         counts[item.status] += 1
@@ -113,7 +122,7 @@ def summary(findings: List[Finding]):
     return counts
 
 
-def document(findings: List[Finding], selected_categories: List[str]):
+def document(findings, selected_categories):
     info = {}
     data = read("/etc/os-release", 16000) or ""
     for key in ("ID", "VERSION_ID", "PRETTY_NAME"):
@@ -124,8 +133,8 @@ def document(findings: List[Finding], selected_categories: List[str]):
     return {
         "tool": "AstraAudit",
         "version": VERSION,
-        "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "platform": {**info, "kernel": platform.release()[:80], "architecture": platform.machine()},
+        "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "platform": dict(info, kernel=platform.release()[:80], architecture=platform.machine()),
         "privileged": bool(hasattr(os, "geteuid") and os.geteuid() == 0),
         "categories": selected_categories,
         "summary": summary(findings),
